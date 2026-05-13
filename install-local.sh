@@ -118,6 +118,12 @@ if [[ -e "${APP_DIR}" ]]; then
 fi
 mv "${NEW_DIR}" "${APP_DIR}"
 chmod +x "${APP_DIR}/install.sh" "${APP_DIR}/server.py"
+if [[ -f "${APP_DIR}/uninstall.sh" ]]; then
+  chmod +x "${APP_DIR}/uninstall.sh"
+fi
+if [[ -f "${APP_DIR}/install-online.sh" ]]; then
+  chmod +x "${APP_DIR}/install-online.sh"
+fi
 
 echo "[3/5] Installing systemd units on port ${PORT} ..."
 APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" "${APP_DIR}/install.sh"
