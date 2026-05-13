@@ -7,6 +7,10 @@ REF="${REF:-main}"
 APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
 PORT="${PORT:-8765}"
 USER_NAME="${USER_NAME:-root}"
+BIND_HOST="${BIND_HOST:-127.0.0.1}"
+AUTH_PASSWORD="${AUTH_PASSWORD:-}"
+AUTH_DISABLE="${AUTH_DISABLE:-0}"
+AUTH_COOKIE_DAYS="${AUTH_COOKIE_DAYS:-30}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 ARCHIVE_URL="${ARCHIVE_URL:-https://github.com/${REPO}/archive/refs/heads/${REF}.tar.gz}"
 
@@ -17,14 +21,18 @@ Usage:
 
 Options by env:
   PORT=9876                 change listen port, default: 8765
+  BIND_HOST=0.0.0.0          allow external network access, default: 127.0.0.1
+  AUTH_PASSWORD='...'        set login password; generated automatically when BIND_HOST is public
+  AUTH_COOKIE_DAYS=30        remember-device days, default: 30
   APP_DIR=/opt/name          change install dir, default: /opt/tiny-service-panel
   USER_NAME=root             systemd service user, default: root
   REF=main                   Git ref to install, default: main
   REPO=${REPO}               GitHub repo, default: ${REPO}
-  GITHUB_TOKEN=ghp_xxx        optional token for private repo downloads
+  GITHUB_TOKEN=token_xxx      optional token for private repo downloads
 
 Example:
   curl -fsSL https://raw.githubusercontent.com/${REPO}/${REF}/install-online.sh | sudo env PORT=9876 bash
+  curl -fsSL https://raw.githubusercontent.com/${REPO}/${REF}/install-online.sh | sudo env BIND_HOST=0.0.0.0 AUTH_PASSWORD='change-me' bash
 USAGE
 }
 
@@ -118,12 +126,17 @@ if [[ -f "${APP_DIR}/install-local.sh" ]]; then
   chmod +x "${APP_DIR}/install-local.sh"
 fi
 
-echo "[4/5] Installing systemd units on port ${PORT} ..."
-APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" "${APP_DIR}/install.sh"
+echo "[4/5] Installing systemd units on ${BIND_HOST}:${PORT} ..."
+APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" BIND_HOST="${BIND_HOST}" AUTH_PASSWORD="${AUTH_PASSWORD}" AUTH_DISABLE="${AUTH_DISABLE}" AUTH_COOKIE_DAYS="${AUTH_COOKIE_DAYS}" "${APP_DIR}/install.sh"
 
 echo "[5/5] Done."
 echo ""
-echo "Local URL: http://127.0.0.1:${PORT}"
-echo "Check:     curl http://127.0.0.1:${PORT}/api/summary"
+if [[ "${BIND_HOST}" == "0.0.0.0" || "${BIND_HOST}" == "::" ]]; then
+  echo "URL:       http://<server-ip>:${PORT}"
+  echo "Check:     curl http://127.0.0.1:${PORT}/api/auth/status"
+else
+  echo "Local URL: http://${BIND_HOST}:${PORT}"
+  echo "Check:     curl http://${BIND_HOST}:${PORT}/api/auth/status"
+fi
 echo "Uninstall: sudo bash ${APP_DIR}/uninstall.sh"
 echo "Logs:      journalctl -u ${APP_NAME}.service -n 100 --no-pager"

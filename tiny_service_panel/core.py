@@ -136,12 +136,12 @@ def sort_units(units: List[Dict[str, Any]], key: str = "memory", direction: str 
     return sorted(units, key=key_map.get(key, key_map["memory"]), reverse=reverse)
 
 
-def render_systemd_units(port: int, user: str, app_dir: str) -> Dict[str, str]:
+def render_systemd_units(port: int, user: str, app_dir: str, bind_host: str = "127.0.0.1", auth_env_file: str = "/etc/tiny-service-panel/auth.env") -> Dict[str, str]:
     socket_unit = f"""[Unit]
 Description=Tiny Service Panel Socket
 
 [Socket]
-ListenStream=127.0.0.1:{port}
+ListenStream={bind_host}:{port}
 Accept=no
 NoDelay=true
 
@@ -160,6 +160,7 @@ ExecStart=/usr/bin/python3 {app_dir}/server.py --systemd-socket
 StandardInput=socket
 StandardOutput=journal
 StandardError=journal
+EnvironmentFile=-{auth_env_file}
 Environment=TSP_IDLE_TIMEOUT=60
 TimeoutStopSec=5
 KillMode=process

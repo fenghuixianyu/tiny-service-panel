@@ -54,7 +54,12 @@ class CoreTests(unittest.TestCase):
         self.assertIn("ListenStream=127.0.0.1:8765", files["tiny-service-panel.socket"])
         self.assertIn("Accept=no", files["tiny-service-panel.socket"])
         self.assertIn("StandardInput=socket", files["tiny-service-panel.service"])
+        self.assertIn("EnvironmentFile=-/etc/tiny-service-panel/auth.env", files["tiny-service-panel.service"])
         self.assertIn("ExecStart=/usr/bin/python3 /opt/tiny-service-panel/server.py --systemd-socket", files["tiny-service-panel.service"])
+
+    def test_render_systemd_units_can_bind_public_address(self):
+        files = render_systemd_units(port=9876, user="root", app_dir="/opt/tiny-service-panel", bind_host="0.0.0.0")
+        self.assertIn("ListenStream=0.0.0.0:9876", files["tiny-service-panel.socket"])
 
     def test_common_noisy_units_are_detected_but_user_services_are_kept(self):
         self.assertTrue(is_common_noisy_unit("systemd-journald.service", "Journal Service"))

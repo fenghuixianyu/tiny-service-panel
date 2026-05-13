@@ -7,6 +7,19 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+  <section id="loginPanel" class="login-panel" hidden>
+    <form id="loginForm" class="login-card">
+      <div class="brand-mark">◆</div>
+      <h1>Tiny Service Panel</h1>
+      <p class="subtitle">请输入访问密码</p>
+      <input id="loginPassword" type="password" autocomplete="current-password" placeholder="密码" required />
+      <label class="remember-row"><input id="rememberDevice" type="checkbox" checked /> 记住此设备</label>
+      <button class="ok" type="submit">登录</button>
+      <p id="loginError" class="login-error" hidden></p>
+    </form>
+  </section>
+
+  <div id="appShell" hidden>
   <header class="hero">
     <div class="brand-row">
       <div class="brand-mark">◆</div>
@@ -14,6 +27,7 @@
         <h1>Tiny Service Panel</h1>
         <p class="subtitle">按需启动的轻量 systemd 控制台</p>
       </div>
+      <button id="logout" class="icon-btn text-btn" title="退出登录" aria-label="退出登录" hidden>退出</button>
       <button id="refresh" class="icon-btn" title="刷新" aria-label="刷新"><span>↻</span></button>
     </div>
     <section id="dashboard" class="dashboard">
@@ -63,6 +77,7 @@
     <h3 id="modal-title"></h3>
     <pre id="modal-body"></pre>
   </dialog>
+  </div>
 
   <script src="/app.js"></script>
 </body>

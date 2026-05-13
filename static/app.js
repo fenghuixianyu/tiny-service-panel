@@ -7,7 +7,31 @@ const $ = id => document.getElementById(id);
 
 function mb(n){ return `${Number(n||0).toFixed(1)} MB`; }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-async function api(url,opts){ const r=await fetch(url,opts); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+function showLogin(msg=''){
+  $('appShell').hidden = true;
+  $('loginPanel').hidden = false;
+  $('loginError').hidden = !msg;
+  $('loginError').textContent = msg;
+  setTimeout(()=>$('loginPassword').focus(), 30);
+}
+function showApp(authEnabled=false){
+  $('loginPanel').hidden = true;
+  $('appShell').hidden = false;
+  $('logout').hidden = !authEnabled;
+}
+async function api(url,opts={}){
+  const {skipAuth=false, ...fetchOpts} = opts || {};
+  const r = await fetch(url, fetchOpts);
+  const text = await r.text();
+  let data = null;
+  try{ data = text ? JSON.parse(text) : {}; }catch{ data = null; }
+  if(r.status === 401 && !skipAuth){
+    showLogin('请先登录');
+    throw new Error((data && data.error) || '需要登录');
+  }
+  if(!r.ok) throw new Error((data && data.error) || text || `HTTP ${r.status}`);
+  return data ?? {};
+}
 function stateClass(u){ if(u.active==='active') return 'active'; if(u.active==='failed'||u.sub==='failed') return 'failed'; if(u.active==='activating') return 'warn'; return 'inactive'; }
 function primaryAction(u){ return u.active==='active' ? {name:'stop', label:'停止', cls:'danger'} : {name:'start', label:'启动', cls:'ok'}; }
 function isProblem(u){ return ['failed','activating','deactivating','reloading'].includes(u.active) || ['failed','auto-restart'].includes(u.sub); }
@@ -144,4 +168,42 @@ $('filter').oninput=render;
 $('dir').onclick=()=>{direction=direction==='desc'?'asc':'desc'; localStorage.tspDirection=direction; refresh(false);};
 $('hideNoisy').onclick=()=>{hideNoisy=!hideNoisy; localStorage.tspHideNoisy=hideNoisy?'1':'0'; render();};
 $('favoritesOnly').onclick=()=>{favoritesOnly=!favoritesOnly; localStorage.tspFavoritesOnly=favoritesOnly?'1':'0'; render();};
-refresh();
+
+$('loginForm').onsubmit=async e=>{
+  e.preventDefault();
+  $('loginError').hidden = true;
+  const password = $('loginPassword').value;
+  const remember = $('rememberDevice').checked;
+  try{
+    const res = await api('/api/auth/login',{skipAuth:true,method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,remember})});
+    if(!res.ok) throw new Error(res.error||'登录失败');
+    $('loginPassword').value = '';
+    showApp(true);
+    await refresh();
+  }catch(err){
+    $('loginError').textContent = err.message || '登录失败';
+    $('loginError').hidden = false;
+  }
+};
+
+$('logout').onclick=async()=>{
+  await api('/api/auth/logout',{skipAuth:true,method:'POST'}).catch(()=>{});
+  allUnits = [];
+  showLogin('已退出登录');
+};
+
+async function init(){
+  try{
+    const auth = await api('/api/auth/status',{skipAuth:true});
+    if(auth.enabled && !auth.authenticated){
+      showLogin();
+      return;
+    }
+    showApp(!!auth.enabled);
+    await refresh();
+  }catch(e){
+    showApp(false);
+    toast('初始化失败: '+e.message, true);
+  }
+}
+init();

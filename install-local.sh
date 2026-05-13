@@ -5,6 +5,10 @@ APP_NAME="tiny-service-panel"
 APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
 PORT="${PORT:-8765}"
 USER_NAME="${USER_NAME:-root}"
+BIND_HOST="${BIND_HOST:-127.0.0.1}"
+AUTH_PASSWORD="${AUTH_PASSWORD:-}"
+AUTH_DISABLE="${AUTH_DISABLE:-0}"
+AUTH_COOKIE_DAYS="${AUTH_COOKIE_DAYS:-30}"
 ARCHIVE="${1:-}"
 
 usage() {
@@ -14,11 +18,15 @@ Usage:
 
 Options by env:
   PORT=9876                 change listen port, default: 8765
+  BIND_HOST=0.0.0.0          allow external network access, default: 127.0.0.1
+  AUTH_PASSWORD='...'        set login password; generated automatically when BIND_HOST is public
+  AUTH_COOKIE_DAYS=30        remember-device days, default: 30
   APP_DIR=/opt/name          change install dir, default: /opt/tiny-service-panel
   USER_NAME=root             systemd service user, default: root
 
 Example:
   PORT=9876 bash install-local.sh tiny-service-panel.tar.gz
+  BIND_HOST=0.0.0.0 AUTH_PASSWORD='change-me' bash install-local.sh tiny-service-panel.tar.gz
 USAGE
 }
 
@@ -52,7 +60,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
     echo "ERROR: this installer needs root. Please install sudo or run as root." >&2
     exit 1
   fi
-  exec sudo env APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" bash "$0" "${ARCHIVE_ABS}"
+  exec sudo env APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" BIND_HOST="${BIND_HOST}" AUTH_PASSWORD="${AUTH_PASSWORD}" AUTH_DISABLE="${AUTH_DISABLE}" AUTH_COOKIE_DAYS="${AUTH_COOKIE_DAYS}" bash "$0" "${ARCHIVE_ABS}"
 fi
 
 need_cmd() {
@@ -125,8 +133,8 @@ if [[ -f "${APP_DIR}/install-online.sh" ]]; then
   chmod +x "${APP_DIR}/install-online.sh"
 fi
 
-echo "[3/5] Installing systemd units on port ${PORT} ..."
-APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" "${APP_DIR}/install.sh"
+echo "[3/5] Installing systemd units on ${BIND_HOST}:${PORT} ..."
+APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" BIND_HOST="${BIND_HOST}" AUTH_PASSWORD="${AUTH_PASSWORD}" AUTH_DISABLE="${AUTH_DISABLE}" AUTH_COOKIE_DAYS="${AUTH_COOKIE_DAYS}" "${APP_DIR}/install.sh"
 
 echo "[4/5] Verifying socket ..."
 systemctl is-active --quiet "${APP_NAME}.socket"
@@ -134,6 +142,11 @@ echo "      ${APP_NAME}.socket is active"
 
 echo "[5/5] Done."
 echo ""
-echo "Local URL: http://127.0.0.1:${PORT}"
-echo "Check:     curl http://127.0.0.1:${PORT}/api/summary"
+if [[ "${BIND_HOST}" == "0.0.0.0" || "${BIND_HOST}" == "::" ]]; then
+  echo "URL:       http://<server-ip>:${PORT}"
+  echo "Check:     curl http://127.0.0.1:${PORT}/api/auth/status"
+else
+  echo "Local URL: http://${BIND_HOST}:${PORT}"
+  echo "Check:     curl http://${BIND_HOST}:${PORT}/api/auth/status"
+fi
 echo "Logs:      journalctl -u ${APP_NAME}.service -n 100 --no-pager"

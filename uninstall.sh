@@ -4,6 +4,7 @@ set -Eeuo pipefail
 APP_NAME="${APP_NAME:-tiny-service-panel}"
 APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
 REMOVE_BACKUPS="${REMOVE_BACKUPS:-1}"
+AUTH_ENV_FILE="${AUTH_ENV_FILE:-/etc/tiny-service-panel/auth.env}"
 
 usage() {
   cat <<USAGE
@@ -13,6 +14,7 @@ Usage:
 Options by env:
   APP_DIR=/opt/tiny-service-panel   installed directory, default: /opt/tiny-service-panel
   APP_NAME=tiny-service-panel       systemd unit prefix, default: tiny-service-panel
+  AUTH_ENV_FILE=/etc/tiny-service-panel/auth.env
   REMOVE_BACKUPS=1                  remove APP_DIR.bak.* backups, default: 1
 
 Examples:
@@ -31,7 +33,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
     echo "ERROR: uninstall needs root. Please run as root or install sudo." >&2
     exit 1
   fi
-  exec sudo env APP_NAME="${APP_NAME}" APP_DIR="${APP_DIR}" REMOVE_BACKUPS="${REMOVE_BACKUPS}" bash "$0" "$@"
+  exec sudo env APP_NAME="${APP_NAME}" APP_DIR="${APP_DIR}" REMOVE_BACKUPS="${REMOVE_BACKUPS}" AUTH_ENV_FILE="${AUTH_ENV_FILE}" bash "$0" "$@"
 fi
 
 # Safety guard: never allow broad system directories to be removed.
@@ -82,6 +84,8 @@ fi
 
 echo "[3/5] Removing installed files: ${APP_DIR_ABS} ..."
 rm -rf --one-file-system "${APP_DIR_ABS}"
+rm -f "${AUTH_ENV_FILE}"
+rmdir "$(dirname "${AUTH_ENV_FILE}")" 2>/dev/null || true
 
 if [[ "${REMOVE_BACKUPS}" == "1" ]]; then
   echo "[4/5] Removing installer backup directories: ${APP_PARENT_ABS}/${APP_BASE}.bak.* ..."

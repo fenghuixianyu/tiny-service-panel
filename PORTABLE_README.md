@@ -20,6 +20,13 @@ curl -fsSL https://raw.githubusercontent.com/fenghuixianyu/tiny-service-panel/ma
 curl -fsSL https://raw.githubusercontent.com/fenghuixianyu/tiny-service-panel/main/install-online.sh | sudo env PORT=9876 bash
 ```
 
+公网访问并设置密码：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/fenghuixianyu/tiny-service-panel/main/install-online.sh \
+  | sudo env BIND_HOST=0.0.0.0 AUTH_PASSWORD='换成你的强密码' bash
+```
+
 ## 推荐：本地一键安装
 
 把下面两个文件上传到服务器的个人目录即可，例如 `/home/你的用户/` 或 `/root/`：
@@ -40,6 +47,14 @@ bash install-local.sh tiny-service-panel.tar.gz
 ```bash
 PORT=9876 bash install-local.sh tiny-service-panel.tar.gz
 ```
+
+如需公网访问并设置密码：
+
+```bash
+BIND_HOST=0.0.0.0 AUTH_PASSWORD='换成你的强密码' bash install-local.sh tiny-service-panel.tar.gz
+```
+
+如果公网安装时不传 `AUTH_PASSWORD`，脚本会自动生成随机密码并只打印一次。登录页勾选“记住此设备”后，当前浏览器默认 30 天内不用重复输入密码；可通过 `AUTH_COOKIE_DAYS=90` 修改。
 
 脚本会自动使用 `sudo` 提权，把程序安装到：
 
@@ -68,7 +83,7 @@ sudo chmod +x install.sh server.py
 sudo ./install.sh
 
 # 3. 访问本机 API 验证
-curl http://127.0.0.1:8765/api/summary
+curl http://127.0.0.1:8765/api/auth/status
 ```
 
 默认监听 `127.0.0.1:8765`。如需换端口：
@@ -76,6 +91,13 @@ curl http://127.0.0.1:8765/api/summary
 ```bash
 cd /opt/tiny-service-panel
 sudo PORT=9876 ./install.sh
+```
+
+如需改为外网监听：
+
+```bash
+cd /opt/tiny-service-panel
+sudo BIND_HOST=0.0.0.0 AUTH_PASSWORD='换成你的强密码' ./install.sh
 ```
 
 ## 是否需要 root 权限？
@@ -101,6 +123,7 @@ systemd socket/service 状态
 /etc/systemd/system/tiny-service-panel.service
 /etc/systemd/system/sockets.target.wants/tiny-service-panel.socket
 /etc/systemd/system/multi-user.target.wants/tiny-service-panel.service
+/etc/tiny-service-panel/auth.env
 /opt/tiny-service-panel
 /opt/tiny-service-panel.bak.*
 ```
@@ -137,4 +160,4 @@ ss -lntp | grep 8765
 
 ## 安全提醒
 
-此面板能 start/stop/restart systemd 服务，默认以 root 运行。建议只放在本机、内网、VPN、Cloudflare Access 或其它可信反向代理后面，不要裸露到公网。
+此面板能 start/stop/restart systemd 服务，默认以 root 运行。即使加了密码，也建议优先放在本机、内网、VPN、Cloudflare Access 或其它可信反向代理后面；如果必须公网开放，请使用强密码并只放行可信来源 IP。
