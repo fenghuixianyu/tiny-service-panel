@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tiny Service Panel</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="brand-row">
+      <div class="brand-mark">◆</div>
+      <div>
+        <h1>Tiny Service Panel</h1>
+        <p class="subtitle">按需启动的轻量 systemd 控制台</p>
+      </div>
+      <button id="refresh" class="icon-btn" title="刷新" aria-label="刷新"><span>↻</span></button>
+    </div>
+    <section id="dashboard" class="dashboard">
+      <div class="metric"><span>主机</span><strong id="host">...</strong></div>
+      <div class="metric"><span>内存</span><strong id="mem">...</strong></div>
+      <div class="metric"><span>Load 1/5/15 分钟</span><strong id="load">...</strong></div>
+      <div class="metric"><span>根分区</span><strong id="disk">...</strong></div>
+    </section>
+    <p id="toast" class="toast" hidden></p>
+    <section class="toolbar">
+      <select id="type">
+        <option value="all">service + socket + timer</option>
+        <option value="service">services</option>
+        <option value="socket">sockets</option>
+        <option value="timer">timers</option>
+      </select>
+      <select id="sort">
+        <option value="memory">按内存排序</option>
+        <option value="cpu">按 CPU 排序</option>
+        <option value="name">按名称排序</option>
+        <option value="state">按状态排序</option>
+      </select>
+      <select id="stateFilter" title="状态筛选">
+        <option value="all">全部状态</option>
+        <option value="active">运行中</option>
+        <option value="inactive">已停止</option>
+        <option value="problem">异常/切换中</option>
+      </select>
+      <button id="dir">降序</button>
+      <button id="hideNoisy" class="toggle on">隐藏系统项</button>
+      <button id="favoritesOnly" class="toggle">收藏列表</button>
+      <input id="filter" placeholder="过滤服务名/描述/备注" />
+    </section>
+  </header>
+
+  <main>
+    <div class="table-card">
+      <table>
+        <thead><tr><th>Unit</th><th>内存</th><th>状态</th><th>CPU</th><th>进程</th><th>描述</th><th>操作</th></tr></thead>
+        <tbody id="units"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <dialog id="modal">
+    <form method="dialog"><button class="close">关闭</button></form>
+    <h3 id="modal-title"></h3>
+    <pre id="modal-body"></pre>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>

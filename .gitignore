@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local/generated packages
+*.zip
+*.tar.gz
+*.tgz
+dist/
+build/
+
+# Secrets / local operator files
+.env
+*.pem
+*_private-key*
+*private-key*
+【密钥】*
+merisagermer/
+服务器信息.txt
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
