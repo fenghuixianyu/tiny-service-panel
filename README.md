@@ -146,12 +146,13 @@ curl -fsSL https://raw.githubusercontent.com/fenghuixianyu/tiny-service-panel/ma
 
 ## 私有仓库能不能一键安装？
 
-可以，但不能像公开仓库一样匿名下载。私有仓库下载 `raw.githubusercontent.com` 或源码压缩包时需要 GitHub Token，例如：
+可以，但不能像公开仓库一样匿名下载。私有仓库下载 `raw.githubusercontent.com` 和源码压缩包时都需要 GitHub Token，例如：
 
 ```bash
 GITHUB_TOKEN=你的token
 curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-  https://raw.githubusercontent.com/OWNER/REPO/main/install-online.sh | sudo bash
+  https://raw.githubusercontent.com/OWNER/REPO/main/install-online.sh \
+  | sudo env GITHUB_TOKEN="${GITHUB_TOKEN}" REPO=OWNER/REPO bash
 ```
 
 这会让安装命令变复杂，也容易在 shell history 里留下 token。为了多台服务器快捷安装，本项目建议公开仓库；不要把服务器密钥、Token、私有配置提交到仓库。

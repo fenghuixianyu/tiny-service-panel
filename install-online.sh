@@ -7,6 +7,7 @@ REF="${REF:-main}"
 APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
 PORT="${PORT:-8765}"
 USER_NAME="${USER_NAME:-root}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 ARCHIVE_URL="${ARCHIVE_URL:-https://github.com/${REPO}/archive/refs/heads/${REF}.tar.gz}"
 
 usage() {
@@ -20,6 +21,7 @@ Options by env:
   USER_NAME=root             systemd service user, default: root
   REF=main                   Git ref to install, default: main
   REPO=${REPO}               GitHub repo, default: ${REPO}
+  GITHUB_TOKEN=ghp_xxx        optional token for private repo downloads
 
 Example:
   curl -fsSL https://raw.githubusercontent.com/${REPO}/${REF}/install-online.sh | sudo env PORT=9876 bash
@@ -62,9 +64,17 @@ trap cleanup EXIT
 ARCHIVE="${TMP_DIR}/${APP_NAME}.tar.gz"
 echo "[1/5] Downloading ${ARCHIVE_URL} ..."
 if command -v curl >/dev/null 2>&1; then
-  curl -fsSL "${ARCHIVE_URL}" -o "${ARCHIVE}"
+  if [[ -n "${GITHUB_TOKEN}" ]]; then
+    curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" "${ARCHIVE_URL}" -o "${ARCHIVE}"
+  else
+    curl -fsSL "${ARCHIVE_URL}" -o "${ARCHIVE}"
+  fi
 elif command -v wget >/dev/null 2>&1; then
-  wget -qO "${ARCHIVE}" "${ARCHIVE_URL}"
+  if [[ -n "${GITHUB_TOKEN}" ]]; then
+    wget -qO "${ARCHIVE}" --header="Authorization: Bearer ${GITHUB_TOKEN}" "${ARCHIVE_URL}"
+  else
+    wget -qO "${ARCHIVE}" "${ARCHIVE_URL}"
+  fi
 else
   echo "ERROR: missing curl or wget." >&2
   exit 1
