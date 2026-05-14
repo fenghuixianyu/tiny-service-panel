@@ -10,6 +10,7 @@ USER_NAME="${USER_NAME:-root}"
 BIND_HOST="${BIND_HOST:-127.0.0.1}"
 AUTH_PASSWORD="${AUTH_PASSWORD:-}"
 AUTH_DISABLE="${AUTH_DISABLE:-0}"
+AUTH_RANDOM="${AUTH_RANDOM:-0}"
 AUTH_COOKIE_DAYS="${AUTH_COOKIE_DAYS:-30}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 ARCHIVE_URL="${ARCHIVE_URL:-https://github.com/${REPO}/archive/refs/heads/${REF}.tar.gz}"
@@ -22,7 +23,8 @@ Usage:
 Options by env:
   PORT=9876                 change listen port, default: 8765
   BIND_HOST=0.0.0.0          allow external network access, default: 127.0.0.1
-  AUTH_PASSWORD='...'        set login password; generated automatically when BIND_HOST is public
+  AUTH_PASSWORD='...'        set login password directly
+  AUTH_RANDOM=1              generate random login password without prompting
   AUTH_COOKIE_DAYS=30        remember-device days, default: 30
   APP_DIR=/opt/name          change install dir, default: /opt/tiny-service-panel
   USER_NAME=root             systemd service user, default: root
@@ -32,6 +34,7 @@ Options by env:
 
 Example:
   curl -fsSL https://raw.githubusercontent.com/${REPO}/${REF}/install-online.sh | sudo env PORT=9876 bash
+  curl -fsSL https://raw.githubusercontent.com/${REPO}/${REF}/install-online.sh | sudo env BIND_HOST=0.0.0.0 bash
   curl -fsSL https://raw.githubusercontent.com/${REPO}/${REF}/install-online.sh | sudo env BIND_HOST=0.0.0.0 AUTH_PASSWORD='change-me' bash
 USAGE
 }
@@ -127,7 +130,7 @@ if [[ -f "${APP_DIR}/install-local.sh" ]]; then
 fi
 
 echo "[4/5] Installing systemd units on ${BIND_HOST}:${PORT} ..."
-APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" BIND_HOST="${BIND_HOST}" AUTH_PASSWORD="${AUTH_PASSWORD}" AUTH_DISABLE="${AUTH_DISABLE}" AUTH_COOKIE_DAYS="${AUTH_COOKIE_DAYS}" "${APP_DIR}/install.sh"
+APP_DIR="${APP_DIR}" PORT="${PORT}" USER_NAME="${USER_NAME}" BIND_HOST="${BIND_HOST}" AUTH_PASSWORD="${AUTH_PASSWORD}" AUTH_DISABLE="${AUTH_DISABLE}" AUTH_RANDOM="${AUTH_RANDOM}" AUTH_COOKIE_DAYS="${AUTH_COOKIE_DAYS}" "${APP_DIR}/install.sh"
 
 echo "[5/5] Done."
 echo ""
