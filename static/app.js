@@ -5,6 +5,10 @@ let hideNoisy = localStorage.tspHideNoisy !== '0';
 let favoritesOnly = localStorage.tspFavoritesOnly === '1';
 let stateFilter = localStorage.tspStateFilter || 'all';
 let bootFilter = localStorage.tspBootFilter || 'all';
+let zoneFilter = localStorage.tspZoneFilter || 'all';
+const SEARCH_SCOPE_KEYS = ['unit','description','note','state','boot','shield'];
+let searchScopes = new Set((localStorage.tspSearchScopes || SEARCH_SCOPE_KEYS.join(',')).split(',').filter(Boolean));
+if(!searchScopes.size) searchScopes = new Set(SEARCH_SCOPE_KEYS);
 let problemFirst = localStorage.tspProblemFirst !== '0';
 const $ = id => document.getElementById(id);
 
@@ -97,6 +101,30 @@ function matchesBoot(u){
   if(bootFilter === 'locked') return BOOT_LOCKED.has(s) || s === 'unknown';
   return true;
 }
+function matchesZone(u){
+  const cat = u.shield_category || (u.noisy ? 'base' : 'normal');
+  if(zoneFilter === 'normal') return !u.noisy;
+  if(zoneFilter === 'shielded') return !!u.noisy;
+  if(zoneFilter === 'all') return true;
+  return cat === zoneFilter;
+}
+function searchTextFor(u){
+  const parts = [];
+  if(searchScopes.has('unit')) parts.push(u.unit || '', u.display_unit || '');
+  if(searchScopes.has('description')) parts.push(u.description || '');
+  if(searchScopes.has('note')) parts.push(u.note || '');
+  if(searchScopes.has('state')) parts.push(u.active || '', u.sub || '');
+  if(searchScopes.has('boot')) parts.push(bootLabel(u), bootState(u));
+  if(searchScopes.has('shield')) parts.push(u.noisy ? '屏蔽区' : '常用区', u.shield_label || '', u.shield_category || '');
+  return parts.join(' ').toLowerCase();
+}
+function saveSearchScopes(){
+  localStorage.tspSearchScopes = SEARCH_SCOPE_KEYS.filter(k=>searchScopes.has(k)).join(',');
+}
+function syncScopeInputs(){
+  document.querySelectorAll('[data-scope]').forEach(el=>{ el.checked = searchScopes.has(el.dataset.scope); });
+}
+
 function displayName(u){ return u.note ? `${u.unit}（${u.note}）` : u.unit; }
 function findUnit(unit){ return allUnits.find(u=>u.unit===unit); }
 function toast(msg, bad=false){ const t=$('toast'); t.textContent=msg; t.className='toast '+(bad?'bad':''); t.hidden=false; clearTimeout(toast.timer); toast.timer=setTimeout(()=>t.hidden=true,4200); }
@@ -111,7 +139,7 @@ async function loadSummary(){
   $('load').textContent = s.load.join(' / ');
   $('disk').textContent = s.disk_root.use_percent || '-';
   const rb = s.reboot_required || {required:false, package_count:0};
-  $('reboot').textContent = rb.required ? `需要重启${rb.package_count ? ' · '+rb.package_count+'项' : ''}` : '无需重启';
+  $('reboot').textContent = rb.required ? `建议重启${rb.package_count ? ' · '+rb.package_count+'项' : ''}` : '无需重启';
   $('reboot').className = rb.required ? 'warn-text' : 'good-text';
   renderDisks(s.disks || []);
 }
@@ -157,10 +185,11 @@ function filteredRows(){
   const rows = allUnits.filter(u=>{
     if(hideNoisy && u.noisy && !u.favorite) return false;
     if(favoritesOnly && !u.favorite) return false;
+    if(!matchesZone(u)) return false;
     if(!matchesState(u)) return false;
     if(!matchesBoot(u)) return false;
     if(!q) return true;
-    return (u.unit+' '+u.description+' '+(u.note||'')+' '+bootLabel(u)+' '+bootState(u)).toLowerCase().includes(q);
+    return searchTextFor(u).includes(q);
   });
   if(problemFirst) rows.sort((a,b)=>Number(isProblem(b))-Number(isProblem(a)));
   return rows;
@@ -180,13 +209,13 @@ function renderTableRows(rows){
     return `
     <tr class="${u.favorite?'fav':''} ${u.noisy?'noisy':''}">
       <td class="unit"><div class="unit-wrap">
-        <div class="unit-main"><strong>${esc(u.display_unit||displayName(u))}</strong><small>${esc(u.unit)}</small></div>
+        <div class="unit-main"><strong>${esc(u.display_unit||displayName(u))}</strong><small>${esc(u.unit)}${u.noisy?' · '+esc(u.shield_label||'屏蔽区'):''}</small></div>
         <button class="quick ${p.cls}" ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},${jsArg(p.name)})'>${pending?'处理中':p.label}</button>
       </div></td>
       <td class="num memcol">${mb(u.memory_mb)}</td>
       <td><span class="state ${stateClass(u)}">${esc(u.active)}/${esc(u.sub)}</span></td>
       <td><span class="boot ${bootClass(u)}">${esc(bootLabel(u))}</span></td>
-      <td class="num">${Number(u.cpu_percent||0).toFixed(1)}%</td>
+      <td class="num cpucol">${Number(u.cpu_percent||0).toFixed(1)}%</td>
       <td class="num">${u.process_count||0}</td>
       <td class="desc">${esc(u.description||'')}</td>
       <td><div class="actions">
@@ -209,12 +238,12 @@ function renderMobileCards(rows){
     const pending = pendingUnits.has(u.unit);
     return `
     <article class="unit-card ${u.favorite?'fav':''} ${u.noisy?'noisy':''}">
-      <div class="card-title"><div><strong>${esc(u.display_unit||displayName(u))}</strong><small>${esc(u.description||u.unit)}</small></div><button class="star ${u.favorite?'on':''}" onclick='toggleFavorite(${jsArg(u.unit)})'>${u.favorite?'★':'☆'}</button></div>
+      <div class="card-title"><div><strong>${esc(u.display_unit||displayName(u))}</strong><small>${esc(u.description||u.unit)}${u.noisy?' · '+esc(u.shield_label||'屏蔽区'):''}</small></div><button class="star ${u.favorite?'on':''}" onclick='toggleFavorite(${jsArg(u.unit)})'>${u.favorite?'★':'☆'}</button></div>
       <div class="card-meta">
         <span class="state ${stateClass(u)}">运行 ${esc(u.active)}/${esc(u.sub)}</span>
         <span class="boot ${bootClass(u)}">自启 ${esc(bootLabel(u))}</span>
       </div>
-      <div class="card-stats"><span>内存 ${mb(u.memory_mb)}</span><span>CPU ${Number(u.cpu_percent||0).toFixed(1)}%</span></div>
+      <div class="card-stats"><span class="hot-stat mem">内存 ${mb(u.memory_mb)}</span><span class="hot-stat cpu">CPU ${Number(u.cpu_percent||0).toFixed(1)}%</span></div>
       <div class="card-actions primary">
         <button class="${p.cls}" ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},${jsArg(p.name)})'>${pending?'处理中':p.label}</button>
         <button ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},"restart")'>重启</button>
@@ -237,6 +266,8 @@ function render(){
   $('problemFirst').classList.toggle('on', problemFirst);
   $('stateFilter').value = stateFilter;
   $('bootFilter').value = bootFilter;
+  $('zoneFilter').value = zoneFilter;
+  syncScopeInputs();
   $('dir').textContent = direction === 'desc' ? '降序' : '升序';
   const rows = filteredRows();
   const problemCount = allUnits.filter(isProblem).length;
@@ -367,11 +398,27 @@ $('sort').onchange=()=>{sortUnitsLocal(); render();};
 $('type').onchange=()=>refresh();
 $('stateFilter').onchange=()=>{stateFilter=$('stateFilter').value; localStorage.tspStateFilter=stateFilter; render();};
 $('bootFilter').onchange=()=>{bootFilter=$('bootFilter').value; localStorage.tspBootFilter=bootFilter; render();};
+$('zoneFilter').onchange=()=>{zoneFilter=$('zoneFilter').value; localStorage.tspZoneFilter=zoneFilter; render();};
+document.querySelectorAll('[data-scope]').forEach(el=>{el.onchange=()=>{ if(el.checked) searchScopes.add(el.dataset.scope); else searchScopes.delete(el.dataset.scope); saveSearchScopes(); render(); };});
 $('filter').oninput=render;
 $('dir').onclick=()=>{direction=direction==='desc'?'asc':'desc'; localStorage.tspDirection=direction; sortUnitsLocal(); render();};
 $('hideNoisy').onclick=()=>{hideNoisy=!hideNoisy; localStorage.tspHideNoisy=hideNoisy?'1':'0'; render();};
 $('favoritesOnly').onclick=()=>{favoritesOnly=!favoritesOnly; localStorage.tspFavoritesOnly=favoritesOnly?'1':'0'; render();};
 $('problemFirst').onclick=()=>{problemFirst=!problemFirst; localStorage.tspProblemFirst=problemFirst?'1':'0'; render();};
+
+
+$('rebootBtn').onclick=async()=>{
+  const host = $('host').textContent || 'server';
+  if(!confirm(`确认重启服务器 ${host}？\n面板会短暂断开，SSH/网站也可能中断。`)) return;
+  const typed = prompt('请输入 REBOOT 确认重启服务器：');
+  if(typed !== 'REBOOT') { toast('已取消重启'); return; }
+  try{
+    toast('已发送重启请求，服务器即将断开...');
+    await api('/api/system/reboot',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  }catch(e){
+    toast(e.message || '重启请求失败', true);
+  }
+};
 
 $('loginForm').onsubmit=async e=>{
   e.preventDefault();

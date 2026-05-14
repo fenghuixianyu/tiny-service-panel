@@ -37,12 +37,12 @@
       <div class="metric"><span>Swap</span><strong id="swap">...</strong></div>
       <div class="metric"><span>Load 1/5/15 分钟</span><strong id="load">...</strong></div>
       <div class="metric"><span>根分区</span><strong id="disk">...</strong></div>
-      <div class="metric"><span>重启需求</span><strong id="reboot">...</strong></div>
+      <div class="metric reboot-metric"><span>系统重启</span><strong id="reboot">...</strong><button id="rebootBtn" class="danger mini-action">重启服务器</button></div>
     </section>
-    <section class="disk-panel">
-      <div class="panel-title"><strong>磁盘分区</strong><span id="diskHint">...</span></div>
+    <details class="disk-panel">
+      <summary class="panel-title"><strong>磁盘分区</strong><span id="diskHint">...</span></summary>
       <div id="disks" class="disk-list"></div>
-    </section>
+    </details>
     <p id="toast" class="toast" hidden></p>
     <section class="toolbar">
       <input id="filter" placeholder="过滤服务名/描述/备注" />
@@ -73,6 +73,26 @@
           <option value="locked">不可改</option>
           <option value="masked">已屏蔽</option>
         </select>
+        <select id="zoneFilter" title="屏蔽区筛选">
+          <option value="all">全部分区</option>
+          <option value="normal">常用区</option>
+          <option value="shielded">屏蔽区</option>
+          <option value="systemd">systemd 基础</option>
+          <option value="session">登录/会话</option>
+          <option value="device">设备/挂载</option>
+          <option value="timer">系统定时器</option>
+          <option value="dbus">D-Bus</option>
+          <option value="base">系统基础</option>
+        </select>
+        <details id="scopeMenu" class="scope-menu">
+          <summary>搜索范围</summary>
+          <label><input type="checkbox" data-scope="unit" checked /> 服务名</label>
+          <label><input type="checkbox" data-scope="description" checked /> 描述</label>
+          <label><input type="checkbox" data-scope="note" checked /> 备注</label>
+          <label><input type="checkbox" data-scope="state" checked /> 状态</label>
+          <label><input type="checkbox" data-scope="boot" checked /> 自启</label>
+          <label><input type="checkbox" data-scope="shield" checked /> 屏蔽区</label>
+        </details>
         <button id="dir">降序</button>
         <button id="hideNoisy" class="toggle on">隐藏系统项</button>
         <button id="favoritesOnly" class="toggle">收藏列表</button>

@@ -95,6 +95,13 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(out[0]["favorite"])
         self.assertEqual(out[0]["note"], "示例服务")
         self.assertEqual(out[0]["display_unit"], "example.service（示例服务）")
+        self.assertFalse(out[0]["shielded"])
+
+    def test_apply_user_metadata_marks_shield_category(self):
+        units = [{"unit": "systemd-journald.service", "description": "Journal Service"}]
+        out = apply_user_metadata(units, {})
+        self.assertTrue(out[0]["shielded"])
+        self.assertEqual(out[0]["shield_category"], "systemd")
 
 
 if __name__ == "__main__":

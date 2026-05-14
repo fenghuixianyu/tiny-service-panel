@@ -15,6 +15,7 @@ from urllib.parse import urlparse, parse_qs
 from tiny_service_panel.system import (
     collect_units,
     system_summary,
+    system_reboot,
     unit_action,
     unit_boot_action,
     unit_logs,
@@ -235,6 +236,10 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({"ok": False, "error": "密码错误"}, 401)
             elif parsed.path == "/api/auth/logout":
                 self.send_logout_success()
+            elif parsed.path == "/api/system/reboot":
+                if not self.is_authenticated():
+                    return self.send_auth_required()
+                self.send_json(system_reboot())
             elif parsed.path == "/api/action":
                 if not self.is_authenticated():
                     return self.send_auth_required()

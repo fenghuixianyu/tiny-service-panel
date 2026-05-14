@@ -44,20 +44,48 @@ NOISY_DESC_PATTERNS = (
     "automount",
 )
 
+SHIELD_LABELS = {
+    "normal": "常用区",
+    "systemd": "systemd 基础",
+    "session": "登录/会话",
+    "device": "设备/挂载",
+    "timer": "系统定时器",
+    "dbus": "D-Bus",
+    "base": "系统基础",
+}
+
 
 def is_allowed_unit_name(name: str) -> bool:
     return bool(name and UNIT_NAME_RE.match(name))
 
 
 def is_common_noisy_unit(unit: str, description: str = "") -> bool:
-    if unit in NOISY_UNIT_NAMES:
-        return True
-    if unit.startswith(NOISY_UNIT_PREFIXES):
-        return True
-    if unit.endswith((".mount", ".automount", ".slice", ".scope")):
-        return True
+    return classify_shield(unit, description)["shielded"]
+
+
+def classify_shield(unit: str, description: str = "") -> Dict[str, Any]:
     desc = (description or "").lower()
-    return any(pat in desc for pat in NOISY_DESC_PATTERNS)
+    category = "normal"
+    if unit in {"dbus.service", "dbus.socket"}:
+        category = "dbus"
+    elif unit.startswith("systemd-"):
+        category = "systemd"
+    elif unit.startswith(("user@", "session-", "getty@", "serial-getty@")):
+        category = "session"
+    elif unit.startswith(("dev-", "sys-", "run-")) or unit.endswith((".mount", ".automount", ".slice", ".scope")):
+        category = "device"
+    elif unit.endswith(".timer") and unit in NOISY_UNIT_NAMES:
+        category = "timer"
+    elif unit in NOISY_UNIT_NAMES:
+        category = "base"
+    desc = (description or "").lower()
+    if category == "normal" and any(pat in desc for pat in NOISY_DESC_PATTERNS):
+        category = "device"
+    return {
+        "shielded": category != "normal",
+        "shield_category": category,
+        "shield_label": SHIELD_LABELS.get(category, category),
+    }
 
 
 def apply_user_metadata(units: List[Dict[str, Any]], metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -68,9 +96,13 @@ def apply_user_metadata(units: List[Dict[str, Any]], metadata: Dict[str, Any]) -
         row = dict(unit)
         name = row.get("unit", "")
         note = str(notes.get(name, "") or "").strip()
+        shield = classify_shield(name, row.get("description", ""))
         row["favorite"] = name in favorites
         row["note"] = note
-        row["noisy"] = is_common_noisy_unit(name, row.get("description", ""))
+        row["shielded"] = bool(shield["shielded"])
+        row["shield_category"] = shield["shield_category"]
+        row["shield_label"] = shield["shield_label"]
+        row["noisy"] = row["shielded"]
         row["display_unit"] = f"{name}（{note}）" if note else name
         out.append(row)
     return out

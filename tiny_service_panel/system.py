@@ -263,3 +263,11 @@ def unit_status(unit: str) -> Dict[str, Any]:
         return {"ok": False, "error": "invalid unit name"}
     cp = run_cmd([SYSTEMCTL, "status", unit, "--no-pager", "-l"], timeout=12)
     return {"ok": cp.returncode in (0, 3), "returncode": cp.returncode, "text": (cp.stdout + cp.stderr)[-20000:]}
+
+
+def system_reboot() -> Dict[str, Any]:
+    try:
+        subprocess.Popen([SYSTEMCTL, "reboot"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return {"ok": True, "message": "reboot requested"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
