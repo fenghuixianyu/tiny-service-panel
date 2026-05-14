@@ -5,6 +5,7 @@
 - 不包含原服务器域名、Cloudflare 配置、主机名等部署信息。
 - `data/metadata.json` 已重置为空收藏/空备注。
 - 不包含 Python `__pycache__`、`.pyc` 等运行缓存。
+- 支持查看和管理 systemd 开机自启状态，并为手机浏览器优化了卡片布局。
 
 ## GitHub 在线安装
 
@@ -99,6 +100,16 @@ sudo PORT=9876 ./install.sh
 cd /opt/tiny-service-panel
 sudo BIND_HOST=0.0.0.0 AUTH_PASSWORD='换成你的强密码' ./install.sh
 ```
+
+## 开机自启管理
+
+服务列表会显示 `已自启 / 未自启 / static / masked` 等状态。
+
+- `开自启`：执行 `systemctl enable xxx`，不会立刻启动服务。
+- `关自启`：执行 `systemctl disable xxx`，不会立刻停止服务。
+- `static / indirect / generated / masked` 等状态默认只显示，不提供按钮，避免误操作。
+
+手机浏览器中会使用卡片式布局，同时保留搜索、类型、排序、运行状态和自启状态筛选。
 
 ## 是否需要 root 权限？
 

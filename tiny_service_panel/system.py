@@ -6,11 +6,13 @@ from typing import Dict, Any, List
 
 from .core import (
     parse_systemctl_list,
+    parse_unit_file_states,
     parse_ps,
     merge_units_with_processes,
     sort_units,
     is_allowed_unit_name,
     apply_user_metadata,
+    apply_boot_metadata,
 )
 
 SYSTEMCTL = "/bin/systemctl" if os.path.exists("/bin/systemctl") else "systemctl"
@@ -91,8 +93,13 @@ def collect_units(sort: str = "memory", direction: str = "desc", unit_type: str 
     for t in types:
         cmd.append(f"--type={t}")
     units_raw = run_cmd(cmd, timeout=12).stdout
+    unit_files_cmd = [SYSTEMCTL, "list-unit-files", "--no-legend", "--no-pager"]
+    for t in types:
+        unit_files_cmd.append(f"--type={t}")
+    unit_files_raw = run_cmd(unit_files_cmd, timeout=12).stdout
     ps_raw = run_cmd(["ps", "-eo", "unit,pid,comm,rss,%cpu", "--no-headers"], timeout=8).stdout
     units = merge_units_with_processes(parse_systemctl_list(units_raw), parse_ps("UNIT PID COMM RSS %CPU\n" + ps_raw))
+    units = apply_boot_metadata(units, parse_unit_file_states(unit_files_raw))
     units = apply_user_metadata(units, load_metadata())
     units = sort_units(units, sort, direction)
     return {"units": units, "count": len(units), "metadata": load_metadata()}
@@ -129,14 +136,39 @@ def system_summary() -> Dict[str, Any]:
 def unit_action(unit: str, action: str) -> Dict[str, Any]:
     if not is_allowed_unit_name(unit):
         return {"ok": False, "error": "invalid unit name"}
-    if action not in {"start", "stop", "restart", "reload", "enable", "disable"}:
+    if action not in {"start", "stop", "restart", "reload"}:
         return {"ok": False, "error": "invalid action"}
-    args = [SYSTEMCTL, action]
-    if action in {"enable", "disable"}:
-        args.append("--now")
-    args.append(unit)
-    cp = run_cmd(args, timeout=30)
+    cp = run_cmd([SYSTEMCTL, action, unit], timeout=30)
     return {"ok": cp.returncode == 0, "returncode": cp.returncode, "stdout": cp.stdout[-4000:], "stderr": cp.stderr[-4000:]}
+
+
+def unit_boot_action(unit: str, action: str) -> Dict[str, Any]:
+    if not is_allowed_unit_name(unit):
+        return {"ok": False, "error": "invalid unit name"}
+    if action not in {"enable", "disable"}:
+        return {"ok": False, "error": "invalid boot action"}
+    unit_type = unit.rsplit(".", 1)[-1]
+    if unit_type not in {"service", "socket", "timer"}:
+        return {"ok": False, "error": "boot management is limited to service/socket/timer units"}
+
+    states_raw = run_cmd([SYSTEMCTL, "list-unit-files", f"--type={unit_type}", "--no-legend", "--no-pager"], timeout=12).stdout
+    states = parse_unit_file_states(states_raw)
+    current = states.get(unit, "unknown")
+    if action == "enable" and current != "disabled":
+        return {"ok": False, "error": f"unit is not enable-able from current state: {current}", "unit_file_state": current}
+    if action == "disable" and current not in {"enabled", "enabled-runtime"}:
+        return {"ok": False, "error": f"unit is not disable-able from current state: {current}", "unit_file_state": current}
+
+    cp = run_cmd([SYSTEMCTL, action, unit], timeout=30)
+    new_raw = run_cmd([SYSTEMCTL, "list-unit-files", f"--type={unit_type}", "--no-legend", "--no-pager"], timeout=12).stdout if cp.returncode == 0 else ""
+    new_state = parse_unit_file_states(new_raw).get(unit, current) if new_raw else current
+    return {
+        "ok": cp.returncode == 0,
+        "returncode": cp.returncode,
+        "stdout": cp.stdout[-4000:],
+        "stderr": cp.stderr[-4000:],
+        "unit_file_state": new_state,
+    }
 
 
 def unit_logs(unit: str, lines: int = 120) -> Dict[str, Any]:

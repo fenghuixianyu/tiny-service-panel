@@ -38,38 +38,50 @@
     </section>
     <p id="toast" class="toast" hidden></p>
     <section class="toolbar">
-      <select id="type">
-        <option value="all">service + socket + timer</option>
-        <option value="service">services</option>
-        <option value="socket">sockets</option>
-        <option value="timer">timers</option>
-      </select>
-      <select id="sort">
-        <option value="memory">按内存排序</option>
-        <option value="cpu">按 CPU 排序</option>
-        <option value="name">按名称排序</option>
-        <option value="state">按状态排序</option>
-      </select>
-      <select id="stateFilter" title="状态筛选">
-        <option value="all">全部状态</option>
-        <option value="active">运行中</option>
-        <option value="inactive">已停止</option>
-        <option value="problem">异常/切换中</option>
-      </select>
-      <button id="dir">降序</button>
-      <button id="hideNoisy" class="toggle on">隐藏系统项</button>
-      <button id="favoritesOnly" class="toggle">收藏列表</button>
       <input id="filter" placeholder="过滤服务名/描述/备注" />
+      <div class="toolbar-scroll">
+        <select id="type">
+          <option value="all">service + socket + timer</option>
+          <option value="service">services</option>
+          <option value="socket">sockets</option>
+          <option value="timer">timers</option>
+        </select>
+        <select id="sort">
+          <option value="memory">按内存排序</option>
+          <option value="cpu">按 CPU 排序</option>
+          <option value="name">按名称排序</option>
+          <option value="state">按状态排序</option>
+          <option value="boot">按自启排序</option>
+        </select>
+        <select id="stateFilter" title="状态筛选">
+          <option value="all">全部状态</option>
+          <option value="active">运行中</option>
+          <option value="inactive">已停止</option>
+          <option value="problem">异常/切换中</option>
+        </select>
+        <select id="bootFilter" title="开机自启筛选">
+          <option value="all">全部自启</option>
+          <option value="enabled">已自启</option>
+          <option value="disabled">未自启</option>
+          <option value="locked">不可改</option>
+          <option value="masked">已屏蔽</option>
+        </select>
+        <button id="dir">降序</button>
+        <button id="hideNoisy" class="toggle on">隐藏系统项</button>
+        <button id="favoritesOnly" class="toggle">收藏列表</button>
+      </div>
     </section>
   </header>
 
   <main>
+    <div class="list-head"><strong>服务列表</strong><span id="listCount">...</span></div>
     <div class="table-card">
       <table>
-        <thead><tr><th>Unit</th><th>内存</th><th>状态</th><th>CPU</th><th>进程</th><th>描述</th><th>操作</th></tr></thead>
+        <thead><tr><th>Unit</th><th>内存</th><th>状态</th><th>自启</th><th>CPU</th><th>进程</th><th>描述</th><th>操作</th></tr></thead>
         <tbody id="units"></tbody>
       </table>
     </div>
+    <section id="mobileUnits" class="mobile-units"></section>
   </main>
 
   <dialog id="modal">

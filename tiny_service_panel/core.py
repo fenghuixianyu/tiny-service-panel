@@ -2,6 +2,11 @@ import re
 from typing import Dict, List, Any
 
 UNIT_NAME_RE = re.compile(r"^[A-Za-z0-9_.@:-]+\.(service|socket|timer|target|path|mount|automount|scope|slice)$")
+BOOT_MANAGEABLE_STATES = {"enabled", "enabled-runtime", "disabled"}
+BOOT_ENABLED_STATES = {"enabled", "enabled-runtime", "linked", "linked-runtime"}
+BOOT_DISABLED_STATES = {"disabled"}
+BOOT_MASKED_STATES = {"masked", "masked-runtime"}
+BOOT_STATIC_STATES = {"static", "indirect", "generated", "transient", "alias"}
 
 NOISY_UNIT_PREFIXES = (
     "systemd-",
@@ -88,6 +93,38 @@ def parse_systemctl_list(raw: str) -> List[Dict[str, Any]]:
     return units
 
 
+def parse_unit_file_states(raw: str) -> Dict[str, str]:
+    states: Dict[str, str] = {}
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("UNIT FILE") or line.startswith("UNIT "):
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        unit, state = parts[0], parts[1]
+        if is_allowed_unit_name(unit):
+            states[unit] = state
+    return states
+
+
+def apply_boot_metadata(units: List[Dict[str, Any]], states: Dict[str, str]) -> List[Dict[str, Any]]:
+    out = []
+    for unit in units:
+        row = dict(unit)
+        state = states.get(row.get("unit", ""), "unknown")
+        row["unit_file_state"] = state
+        row["boot_manageable"] = state in BOOT_MANAGEABLE_STATES
+        if state in {"enabled", "enabled-runtime"}:
+            row["boot_action"] = "disable"
+        elif state == "disabled":
+            row["boot_action"] = "enable"
+        else:
+            row["boot_action"] = ""
+        out.append(row)
+    return out
+
+
 def parse_ps(raw: str) -> Dict[str, Dict[str, Any]]:
     grouped: Dict[str, Dict[str, Any]] = {}
     for line in raw.splitlines():
@@ -127,11 +164,25 @@ def merge_units_with_processes(units: List[Dict[str, Any]], proc: Dict[str, Dict
 
 def sort_units(units: List[Dict[str, Any]], key: str = "memory", direction: str = "desc") -> List[Dict[str, Any]]:
     reverse = direction != "asc"
+    boot_rank = {
+        "enabled": 0,
+        "enabled-runtime": 0,
+        "disabled": 1,
+        "static": 2,
+        "indirect": 2,
+        "generated": 2,
+        "transient": 2,
+        "alias": 2,
+        "masked": 3,
+        "masked-runtime": 3,
+        "unknown": 4,
+    }
     key_map = {
         "memory": lambda u: (u.get("rss_kb", 0), u.get("unit", "")),
         "cpu": lambda u: (u.get("cpu_percent", 0.0), u.get("unit", "")),
         "name": lambda u: u.get("unit", ""),
         "state": lambda u: (u.get("active", ""), u.get("sub", ""), u.get("unit", "")),
+        "boot": lambda u: (boot_rank.get(u.get("unit_file_state", "unknown"), 5), u.get("unit", "")),
     }
     return sorted(units, key=key_map.get(key, key_map["memory"]), reverse=reverse)
 

@@ -1,6 +1,7 @@
 import unittest
 from tiny_service_panel.core import (
     parse_systemctl_list,
+    parse_unit_file_states,
     parse_ps,
     merge_units_with_processes,
     sort_units,
@@ -8,6 +9,7 @@ from tiny_service_panel.core import (
     render_systemd_units,
     is_common_noisy_unit,
     apply_user_metadata,
+    apply_boot_metadata,
 )
 
 
@@ -26,6 +28,23 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(proc["example-app.service"]["cpu_percent"], 4.0)
         self.assertEqual(proc["example-app.service"]["process_count"], 2)
         self.assertEqual(proc["sing-box.service"]["rss_kb"], 74000)
+
+    def test_parse_unit_file_states_and_apply_boot_metadata(self):
+        raw = """ssh.service enabled enabled\nredis.service disabled enabled\napt-daily.timer static enabled\nmasked-demo.service masked enabled\n"""
+        states = parse_unit_file_states(raw)
+        self.assertEqual(states["ssh.service"], "enabled")
+        self.assertEqual(states["redis.service"], "disabled")
+        units = apply_boot_metadata([
+            {"unit": "ssh.service"},
+            {"unit": "redis.service"},
+            {"unit": "apt-daily.timer"},
+            {"unit": "masked-demo.service"},
+        ], states)
+        by_name = {u["unit"]: u for u in units}
+        self.assertEqual(by_name["ssh.service"]["boot_action"], "disable")
+        self.assertEqual(by_name["redis.service"]["boot_action"], "enable")
+        self.assertFalse(by_name["apt-daily.timer"]["boot_manageable"])
+        self.assertFalse(by_name["masked-demo.service"]["boot_manageable"])
 
     def test_merge_and_sort_by_memory_desc(self):
         units = [

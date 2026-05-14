@@ -16,6 +16,7 @@ from tiny_service_panel.system import (
     collect_units,
     system_summary,
     unit_action,
+    unit_boot_action,
     unit_logs,
     unit_status,
     load_metadata,
@@ -239,6 +240,11 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_auth_required()
                 data = self.read_json()
                 self.send_json(unit_action(str(data.get("unit", "")), str(data.get("action", ""))))
+            elif parsed.path == "/api/boot":
+                if not self.is_authenticated():
+                    return self.send_auth_required()
+                data = self.read_json()
+                self.send_json(unit_boot_action(str(data.get("unit", "")), str(data.get("action", ""))))
             elif parsed.path == "/api/metadata":
                 if not self.is_authenticated():
                     return self.send_auth_required()
