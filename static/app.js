@@ -5,6 +5,7 @@ let hideNoisy = localStorage.tspHideNoisy !== '0';
 let favoritesOnly = localStorage.tspFavoritesOnly === '1';
 let stateFilter = localStorage.tspStateFilter || 'all';
 let bootFilter = localStorage.tspBootFilter || 'all';
+let problemFirst = localStorage.tspProblemFirst !== '0';
 const $ = id => document.getElementById(id);
 
 const BOOT_LABELS = {
@@ -28,6 +29,14 @@ const BOOT_MASKED = new Set(['masked','masked-runtime']);
 const BOOT_LOCKED = new Set(['static','indirect','generated','transient','alias']);
 
 function mb(n){ return `${Number(n||0).toFixed(1)} MB`; }
+function gbFromKb(kb){ return `${(Number(kb||0)/1024/1024).toFixed(1)}G`; }
+function humanUptime(seconds){
+  seconds = Number(seconds||0);
+  const d = Math.floor(seconds/86400), h = Math.floor(seconds%86400/3600), m = Math.floor(seconds%3600/60);
+  if(d) return `${d}天 ${h}小时`;
+  if(h) return `${h}小时 ${m}分`;
+  return `${m}分钟`;
+}
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function jsArg(s){ return JSON.stringify(String(s??'')).replace(/</g,'\\u003c'); }
 function showLogin(msg=''){
@@ -95,11 +104,26 @@ function toast(msg, bad=false){ const t=$('toast'); t.textContent=msg; t.classNa
 async function loadSummary(){
   const s = await api('/api/summary');
   $('host').textContent = s.hostname;
+  $('uptime').textContent = humanUptime(s.uptime && s.uptime.seconds);
   $('mem').textContent = `${s.memory.used_mb}/${s.memory.total_mb} MB · ${s.memory.used_percent}%`;
   const sw = s.swap || {used_mb:0,total_mb:0,used_percent:0};
   $('swap').textContent = sw.total_mb ? `${sw.used_mb}/${sw.total_mb} MB · ${sw.used_percent}%` : '0 MB / 未启用';
   $('load').textContent = s.load.join(' / ');
   $('disk').textContent = s.disk_root.use_percent || '-';
+  const rb = s.reboot_required || {required:false, package_count:0};
+  $('reboot').textContent = rb.required ? `需要重启${rb.package_count ? ' · '+rb.package_count+'项' : ''}` : '无需重启';
+  $('reboot').className = rb.required ? 'warn-text' : 'good-text';
+  renderDisks(s.disks || []);
+}
+
+function renderDisks(disks){
+  const items = disks.slice(0, 6);
+  $('diskHint').textContent = disks.length ? `${disks.length} 个挂载点` : '无数据';
+  $('disks').innerHTML = items.map(d=>{
+    const pct = parseInt(String(d.use_percent||'0').replace('%',''), 10) || 0;
+    const cls = pct >= 90 ? 'danger' : pct >= 75 ? 'warn' : '';
+    return `<div class="disk-item ${cls}"><div><strong>${esc(d.mount)}</strong><small>${esc(d.filesystem)} · ${esc(d.type)}</small></div><span>${esc(d.use_percent)} · ${gbFromKb(d.used_kb)}/${gbFromKb(d.size_kb)}</span></div>`;
+  }).join('') || '<div class="disk-item"><div><strong>无磁盘数据</strong></div><span>-</span></div>';
 }
 
 function sortKey(u, key){
@@ -130,7 +154,7 @@ function sortUnitsLocal(){
 
 function filteredRows(){
   const q = $('filter').value.toLowerCase().trim();
-  return allUnits.filter(u=>{
+  const rows = allUnits.filter(u=>{
     if(hideNoisy && u.noisy && !u.favorite) return false;
     if(favoritesOnly && !u.favorite) return false;
     if(!matchesState(u)) return false;
@@ -138,6 +162,8 @@ function filteredRows(){
     if(!q) return true;
     return (u.unit+' '+u.description+' '+(u.note||'')+' '+bootLabel(u)+' '+bootState(u)).toLowerCase().includes(q);
   });
+  if(problemFirst) rows.sort((a,b)=>Number(isProblem(b))-Number(isProblem(a)));
+  return rows;
 }
 
 function renderBootButton(u, compact=false){
@@ -208,11 +234,13 @@ function render(){
   $('hideNoisy').classList.toggle('on', hideNoisy);
   $('hideNoisy').textContent = '隐藏系统项';
   $('favoritesOnly').classList.toggle('on', favoritesOnly);
+  $('problemFirst').classList.toggle('on', problemFirst);
   $('stateFilter').value = stateFilter;
   $('bootFilter').value = bootFilter;
   $('dir').textContent = direction === 'desc' ? '降序' : '升序';
   const rows = filteredRows();
-  $('listCount').textContent = `${rows.length}/${allUnits.length} 项`;
+  const problemCount = allUnits.filter(isProblem).length;
+  $('listCount').textContent = `${rows.length}/${allUnits.length} 项${problemCount ? ' · 异常 '+problemCount : ''}`;
   $('units').innerHTML = renderTableRows(rows);
   $('mobileUnits').innerHTML = renderMobileCards(rows);
 }
@@ -343,6 +371,7 @@ $('filter').oninput=render;
 $('dir').onclick=()=>{direction=direction==='desc'?'asc':'desc'; localStorage.tspDirection=direction; sortUnitsLocal(); render();};
 $('hideNoisy').onclick=()=>{hideNoisy=!hideNoisy; localStorage.tspHideNoisy=hideNoisy?'1':'0'; render();};
 $('favoritesOnly').onclick=()=>{favoritesOnly=!favoritesOnly; localStorage.tspFavoritesOnly=favoritesOnly?'1':'0'; render();};
+$('problemFirst').onclick=()=>{problemFirst=!problemFirst; localStorage.tspProblemFirst=problemFirst?'1':'0'; render();};
 
 $('loginForm').onsubmit=async e=>{
   e.preventDefault();

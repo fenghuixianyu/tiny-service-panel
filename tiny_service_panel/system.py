@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -118,14 +119,51 @@ def system_summary() -> Dict[str, Any]:
         parts = root[1].split()
         if len(parts) >= 6:
             disk = {"size_kb": int(parts[1]), "used_kb": int(parts[2]), "avail_kb": int(parts[3]), "use_percent": parts[4]}
+    disks = []
+    df_raw = run_cmd(["df", "-PT", "-x", "tmpfs", "-x", "devtmpfs", "-x", "squashfs"], timeout=5).stdout.splitlines()
+    for line in df_raw[1:]:
+        parts = line.split(None, 6)
+        if len(parts) < 7:
+            continue
+        fs, fs_type, size, used, avail, use_percent, mount = parts
+        try:
+            disks.append({
+                "filesystem": fs,
+                "type": fs_type,
+                "size_kb": int(size),
+                "used_kb": int(used),
+                "avail_kb": int(avail),
+                "use_percent": use_percent,
+                "mount": mount,
+            })
+        except ValueError:
+            continue
     total = meminfo.get("MemTotal", 0)
     avail = meminfo.get("MemAvailable", 0)
     swap_total = meminfo.get("SwapTotal", 0)
     swap_free = meminfo.get("SwapFree", 0)
     swap_used = max(0, swap_total - swap_free)
+    uptime_seconds = 0
+    try:
+        uptime_seconds = int(float(open("/proc/uptime", encoding="utf-8").read().split()[0]))
+    except Exception:
+        pass
+    boot_time_epoch = int(time.time()) - uptime_seconds if uptime_seconds else 0
+    reboot_required_path = Path("/var/run/reboot-required")
+    reboot_pkgs_path = Path("/var/run/reboot-required.pkgs")
+    reboot_packages = []
+    try:
+        if reboot_pkgs_path.exists():
+            reboot_packages = [line.strip() for line in reboot_pkgs_path.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()][:20]
+    except Exception:
+        reboot_packages = []
     return {
         "hostname": os.uname().nodename,
         "load": load,
+        "uptime": {
+            "seconds": uptime_seconds,
+            "boot_time_epoch": boot_time_epoch,
+        },
         "memory": {
             "total_mb": round(total / 1024, 1),
             "available_mb": round(avail / 1024, 1),
@@ -139,6 +177,12 @@ def system_summary() -> Dict[str, Any]:
             "used_percent": round(swap_used * 100 / swap_total, 1) if swap_total else 0,
         },
         "disk_root": disk,
+        "disks": disks,
+        "reboot_required": {
+            "required": reboot_required_path.exists(),
+            "packages": reboot_packages,
+            "package_count": len(reboot_packages),
+        },
     }
 
 

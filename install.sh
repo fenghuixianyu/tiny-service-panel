@@ -88,10 +88,12 @@ PY
 chmod +x "$APP_DIR/server.py"
 [[ -f "$APP_DIR/uninstall.sh" ]] && chmod +x "$APP_DIR/uninstall.sh"
 systemctl daemon-reload
+systemctl disable tiny-service-panel.service 2>/dev/null || true
 systemctl enable tiny-service-panel.socket
 systemctl restart tiny-service-panel.socket
 systemctl stop tiny-service-panel.service 2>/dev/null || true
 systemctl status tiny-service-panel.socket --no-pager -l
+printf 'Autostart: tiny-service-panel.socket is %s; service stays socket-activated.\n' "$(systemctl is-enabled tiny-service-panel.socket 2>/dev/null || echo unknown)"
 
 if [[ "$BIND_HOST" == "0.0.0.0" || "$BIND_HOST" == "::" ]]; then
   DISPLAY_HOST="<server-ip>"

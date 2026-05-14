@@ -74,6 +74,7 @@ class CoreTests(unittest.TestCase):
         self.assertIn("Accept=no", files["tiny-service-panel.socket"])
         self.assertIn("StandardInput=socket", files["tiny-service-panel.service"])
         self.assertIn("EnvironmentFile=-/etc/tiny-service-panel/auth.env", files["tiny-service-panel.service"])
+        self.assertIn("Environment=TSP_IDLE_TIMEOUT=600", files["tiny-service-panel.service"])
         self.assertIn("ExecStart=/usr/bin/python3 /opt/tiny-service-panel/server.py --systemd-socket", files["tiny-service-panel.service"])
 
     def test_render_systemd_units_can_bind_public_address(self):

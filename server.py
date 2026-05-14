@@ -275,7 +275,7 @@ def serve_systemd_socket():
     httpd = SocketActivatedServer(("127.0.0.1", 0), Handler, bind_and_activate=False)
     httpd.socket = sock
     httpd.server_address = sock.getsockname()
-    idle = int(os.environ.get("TSP_IDLE_TIMEOUT", "60"))
+    idle = int(os.environ.get("TSP_IDLE_TIMEOUT", "600"))
     while True:
         ready, _, _ = select.select([sock], [], [], idle)
         if not ready:

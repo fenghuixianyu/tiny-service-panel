@@ -212,7 +212,7 @@ StandardInput=socket
 StandardOutput=journal
 StandardError=journal
 EnvironmentFile=-{auth_env_file}
-Environment=TSP_IDLE_TIMEOUT=60
+Environment=TSP_IDLE_TIMEOUT=600
 TimeoutStopSec=5
 KillMode=process
 NoNewPrivileges=false

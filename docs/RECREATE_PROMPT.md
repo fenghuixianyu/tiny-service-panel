@@ -10,7 +10,7 @@
 
 1. **平时几乎 0 占用**：使用 systemd socket activation。只 enable `.socket`，不要 enable `.service`。
 2. **访问时才启动**：用户打开 Web 页面或 API 时，systemd 自动启动 Python 后端。
-3. **空闲自动退出**：服务进程 60 秒没有新请求后主动退出，释放内存。
+3. **空闲自动退出**：服务进程 10 分钟没有新请求后主动退出，释放内存。
 4. **零第三方依赖**：后端用 Python 标准库，前端用静态 HTML/CSS/JS，不需要 pip、Node、数据库。
 5. **自动列出服务**：通过 `systemctl list-units --all` 自动捕获 service/socket/timer。
 6. **按内存排序**：通过 `ps -eo unit,pid,comm,rss,%cpu` 按 systemd unit 聚合 RSS，默认按内存从大到小排序。
@@ -78,7 +78,7 @@ ExecStart=/usr/bin/python3 /opt/tiny-service-panel/server.py --systemd-socket
 StandardInput=socket
 StandardOutput=journal
 StandardError=journal
-Environment=TSP_IDLE_TIMEOUT=60
+Environment=TSP_IDLE_TIMEOUT=600
 TimeoutStopSec=5
 KillMode=process
 NoNewPrivileges=false
@@ -309,7 +309,7 @@ systemctl status tiny-service-panel.service --no-pager -l
 
 - 访问前：`.service inactive/dead`，`.socket active/listening`
 - 访问中：`.service active/running`
-- 空闲约 60 秒：`.service inactive/dead`
+- 空闲约 10 分钟：`.service inactive/dead`
 - `.socket` 常驻占用通常只有几 KB
 
 ## 迁移方式

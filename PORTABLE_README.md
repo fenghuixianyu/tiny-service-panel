@@ -6,6 +6,8 @@
 - `data/metadata.json` 已重置为空收藏/空备注。
 - 不包含 Python `__pycache__`、`.pyc` 等运行缓存。
 - 支持查看和管理 systemd 开机自启状态，并为手机浏览器优化了卡片布局。
+- 开机自启的是 systemd socket；Python 后端访问时才启动，空闲 10 分钟后退出。
+- 仪表盘包含内存、Swap、Load、根分区、运行时间、重启需求和磁盘分区。
 
 ## GitHub 在线安装
 
@@ -69,6 +71,8 @@ BIND_HOST=0.0.0.0 AUTH_PASSWORD='换成你的强密码' bash install-local.sh ti
 /etc/systemd/system/tiny-service-panel.socket
 /etc/systemd/system/tiny-service-panel.service
 ```
+
+脚本会默认启用 `tiny-service-panel.socket` 开机自启；`tiny-service-panel.service` 不常驻，只在访问面板时按需启动。
 
 ## 手动安装
 

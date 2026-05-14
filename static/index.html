@@ -25,17 +25,23 @@
       <div class="brand-mark">◆</div>
       <div>
         <h1>Tiny Service Panel</h1>
-        <p class="subtitle">按需启动的轻量 systemd 控制台</p>
+        <p class="subtitle">按需启动的轻量 systemd 控制台 · 空闲 10 分钟退出</p>
       </div>
       <button id="logout" class="icon-btn text-btn" title="退出登录" aria-label="退出登录" hidden>退出</button>
       <button id="refresh" class="icon-btn" title="刷新" aria-label="刷新"><span>↻</span></button>
     </div>
     <section id="dashboard" class="dashboard">
       <div class="metric"><span>主机</span><strong id="host">...</strong></div>
+      <div class="metric"><span>运行时间</span><strong id="uptime">...</strong></div>
       <div class="metric"><span>内存</span><strong id="mem">...</strong></div>
       <div class="metric"><span>Swap</span><strong id="swap">...</strong></div>
       <div class="metric"><span>Load 1/5/15 分钟</span><strong id="load">...</strong></div>
       <div class="metric"><span>根分区</span><strong id="disk">...</strong></div>
+      <div class="metric"><span>重启需求</span><strong id="reboot">...</strong></div>
+    </section>
+    <section class="disk-panel">
+      <div class="panel-title"><strong>磁盘分区</strong><span id="diskHint">...</span></div>
+      <div id="disks" class="disk-list"></div>
     </section>
     <p id="toast" class="toast" hidden></p>
     <section class="toolbar">
@@ -70,6 +76,7 @@
         <button id="dir">降序</button>
         <button id="hideNoisy" class="toggle on">隐藏系统项</button>
         <button id="favoritesOnly" class="toggle">收藏列表</button>
+        <button id="problemFirst" class="toggle">异常置顶</button>
       </div>
     </section>
   </header>
