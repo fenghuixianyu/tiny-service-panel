@@ -36,6 +36,7 @@ PSEUDO_FS_TYPES = {
     "fusectl",
     "hugetlbfs",
     "mqueue",
+    "overlay",
     "proc",
     "pstore",
     "ramfs",
