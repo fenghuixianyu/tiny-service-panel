@@ -43,7 +43,7 @@ function showApp(authEnabled=false){
 }
 async function api(url,opts={}){
   const {skipAuth=false, ...fetchOpts} = opts || {};
-  const r = await fetch(url, fetchOpts);
+  const r = await fetch(url, {credentials:'same-origin', ...fetchOpts});
   const text = await r.text();
   let data = null;
   try{ data = text ? JSON.parse(text) : {}; }catch{ data = null; }
