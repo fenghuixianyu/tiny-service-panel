@@ -22,6 +22,29 @@ DATA_DIR = Path(os.environ.get("TSP_DATA_DIR", str(APP_DIR / "data")))
 META_FILE = DATA_DIR / "metadata.json"
 
 DEFAULT_META = {"favorites": [], "notes": {}}
+PSEUDO_FS_TYPES = {
+    "autofs",
+    "binfmt_misc",
+    "bpf",
+    "cgroup",
+    "cgroup2",
+    "configfs",
+    "debugfs",
+    "devpts",
+    "devtmpfs",
+    "efivarfs",
+    "fusectl",
+    "hugetlbfs",
+    "mqueue",
+    "proc",
+    "pstore",
+    "ramfs",
+    "securityfs",
+    "squashfs",
+    "sysfs",
+    "tmpfs",
+    "tracefs",
+}
 
 
 def run_cmd(args: List[str], timeout: int = 8) -> subprocess.CompletedProcess:
@@ -126,6 +149,8 @@ def system_summary() -> Dict[str, Any]:
         if len(parts) < 7:
             continue
         fs, fs_type, size, used, avail, use_percent, mount = parts
+        if fs_type in PSEUDO_FS_TYPES:
+            continue
         try:
             disks.append({
                 "filesystem": fs,
