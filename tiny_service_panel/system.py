@@ -120,6 +120,9 @@ def system_summary() -> Dict[str, Any]:
             disk = {"size_kb": int(parts[1]), "used_kb": int(parts[2]), "avail_kb": int(parts[3]), "use_percent": parts[4]}
     total = meminfo.get("MemTotal", 0)
     avail = meminfo.get("MemAvailable", 0)
+    swap_total = meminfo.get("SwapTotal", 0)
+    swap_free = meminfo.get("SwapFree", 0)
+    swap_used = max(0, swap_total - swap_free)
     return {
         "hostname": os.uname().nodename,
         "load": load,
@@ -128,6 +131,12 @@ def system_summary() -> Dict[str, Any]:
             "available_mb": round(avail / 1024, 1),
             "used_mb": round((total - avail) / 1024, 1),
             "used_percent": round((total - avail) * 100 / total, 1) if total else 0,
+        },
+        "swap": {
+            "total_mb": round(swap_total / 1024, 1),
+            "free_mb": round(swap_free / 1024, 1),
+            "used_mb": round(swap_used / 1024, 1),
+            "used_percent": round(swap_used * 100 / swap_total, 1) if swap_total else 0,
         },
         "disk_root": disk,
     }

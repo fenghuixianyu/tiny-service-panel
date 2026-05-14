@@ -1,5 +1,6 @@
 let direction = localStorage.tspDirection || 'desc';
 let allUnits = [];
+const pendingUnits = new Set();
 let hideNoisy = localStorage.tspHideNoisy !== '0';
 let favoritesOnly = localStorage.tspFavoritesOnly === '1';
 let stateFilter = localStorage.tspStateFilter || 'all';
@@ -95,8 +96,36 @@ async function loadSummary(){
   const s = await api('/api/summary');
   $('host').textContent = s.hostname;
   $('mem').textContent = `${s.memory.used_mb}/${s.memory.total_mb} MB · ${s.memory.used_percent}%`;
+  const sw = s.swap || {used_mb:0,total_mb:0,used_percent:0};
+  $('swap').textContent = sw.total_mb ? `${sw.used_mb}/${sw.total_mb} MB · ${sw.used_percent}%` : '0 MB / 未启用';
   $('load').textContent = s.load.join(' / ');
   $('disk').textContent = s.disk_root.use_percent || '-';
+}
+
+function sortKey(u, key){
+  const bootRank = {enabled:0,'enabled-runtime':0,disabled:1,static:2,indirect:2,generated:2,transient:2,alias:2,masked:3,'masked-runtime':3,unknown:4};
+  if(key === 'memory') return [Number(u.rss_kb||0), u.unit||''];
+  if(key === 'cpu') return [Number(u.cpu_percent||0), u.unit||''];
+  if(key === 'name') return [String(u.unit||'')];
+  if(key === 'state') return [String(u.active||''), String(u.sub||''), String(u.unit||'')];
+  if(key === 'boot') return [bootRank[bootState(u)] ?? 5, String(u.unit||'')];
+  return [Number(u.rss_kb||0), u.unit||''];
+}
+function cmpValue(a,b){
+  if(typeof a === 'number' && typeof b === 'number') return a-b;
+  return String(a).localeCompare(String(b));
+}
+function sortUnitsLocal(){
+  const key = $('sort').value;
+  const sign = direction === 'asc' ? 1 : -1;
+  allUnits.sort((a,b)=>{
+    const ka = sortKey(a,key), kb = sortKey(b,key);
+    for(let i=0;i<Math.max(ka.length,kb.length);i++){
+      const c = cmpValue(ka[i] ?? '', kb[i] ?? '');
+      if(c) return c * sign;
+    }
+    return 0;
+  });
 }
 
 function filteredRows(){
@@ -112,6 +141,7 @@ function filteredRows(){
 }
 
 function renderBootButton(u, compact=false){
+  if(pendingUnits.has(u.unit)) return '<button disabled>处理中</button>';
   const b = bootAction(u);
   if(!b) return compact ? '<button disabled>不可改自启</button>' : '<button disabled title="当前状态不可直接启用/禁用">自启</button>';
   return `<button class="${b.cls}" onclick='bootAct(${jsArg(u.unit)},${jsArg(b.name)})'>${b.label}</button>`;
@@ -120,11 +150,12 @@ function renderBootButton(u, compact=false){
 function renderTableRows(rows){
   return rows.map(u=>{
     const p = primaryAction(u);
+    const pending = pendingUnits.has(u.unit);
     return `
     <tr class="${u.favorite?'fav':''} ${u.noisy?'noisy':''}">
       <td class="unit"><div class="unit-wrap">
         <div class="unit-main"><strong>${esc(u.display_unit||displayName(u))}</strong><small>${esc(u.unit)}</small></div>
-        <button class="quick ${p.cls}" onclick='act(${jsArg(u.unit)},${jsArg(p.name)})'>${p.label}</button>
+        <button class="quick ${p.cls}" ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},${jsArg(p.name)})'>${pending?'处理中':p.label}</button>
       </div></td>
       <td class="num memcol">${mb(u.memory_mb)}</td>
       <td><span class="state ${stateClass(u)}">${esc(u.active)}/${esc(u.sub)}</span></td>
@@ -133,11 +164,11 @@ function renderTableRows(rows){
       <td class="num">${u.process_count||0}</td>
       <td class="desc">${esc(u.description||'')}</td>
       <td><div class="actions">
-        <button class="ok" onclick='act(${jsArg(u.unit)},"start")'>启动</button>
-        <button onclick='act(${jsArg(u.unit)},"restart")'>重启</button>
-        <button class="danger" onclick='act(${jsArg(u.unit)},"stop")'>停止</button>
+        <button class="ok" ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},"start")'>启动</button>
+        <button ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},"restart")'>重启</button>
+        <button class="danger" ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},"stop")'>停止</button>
         ${renderBootButton(u)}
-        <button class="star action-star ${u.favorite?'on':''}" onclick='toggleFavorite(${jsArg(u.unit)})' title="收藏">${u.favorite?'★':'☆'}</button>
+        <button class="fav-btn ${u.favorite?'on':''}" onclick='toggleFavorite(${jsArg(u.unit)})'>${u.favorite?'取消收藏':'收藏'}</button>
         <button onclick='editNote(${jsArg(u.unit)},${jsArg(u.note||'')})'>备注</button>
         <button onclick='showStatus(${jsArg(u.unit)})'>状态</button>
         <button onclick='showLogs(${jsArg(u.unit)})'>日志</button>
@@ -149,6 +180,7 @@ function renderTableRows(rows){
 function renderMobileCards(rows){
   return rows.map(u=>{
     const p = primaryAction(u);
+    const pending = pendingUnits.has(u.unit);
     return `
     <article class="unit-card ${u.favorite?'fav':''} ${u.noisy?'noisy':''}">
       <div class="card-title"><div><strong>${esc(u.display_unit||displayName(u))}</strong><small>${esc(u.description||u.unit)}</small></div><button class="star ${u.favorite?'on':''}" onclick='toggleFavorite(${jsArg(u.unit)})'>${u.favorite?'★':'☆'}</button></div>
@@ -158,15 +190,15 @@ function renderMobileCards(rows){
       </div>
       <div class="card-stats"><span>内存 ${mb(u.memory_mb)}</span><span>CPU ${Number(u.cpu_percent||0).toFixed(1)}%</span></div>
       <div class="card-actions primary">
-        <button class="${p.cls}" onclick='act(${jsArg(u.unit)},${jsArg(p.name)})'>${p.label}</button>
-        <button onclick='act(${jsArg(u.unit)},"restart")'>重启</button>
+        <button class="${p.cls}" ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},${jsArg(p.name)})'>${pending?'处理中':p.label}</button>
+        <button ${pending?'disabled':''} onclick='act(${jsArg(u.unit)},"restart")'>重启</button>
         ${renderBootButton(u, true)}
       </div>
       <div class="card-actions secondary">
         <button onclick='showStatus(${jsArg(u.unit)})'>状态</button>
         <button onclick='showLogs(${jsArg(u.unit)})'>日志</button>
         <button onclick='editNote(${jsArg(u.unit)},${jsArg(u.note||'')})'>备注</button>
-        <button onclick='toggleFavorite(${jsArg(u.unit)})'>收藏</button>
+        <button class="fav-btn ${u.favorite?'on':''}" onclick='toggleFavorite(${jsArg(u.unit)})'>${u.favorite?'取消收藏':'收藏'}</button>
       </div>
     </article>`;
   }).join('') || '<div class="empty mobile-empty">没有匹配的服务</div>';
@@ -194,19 +226,42 @@ async function refresh(showLoading=true){
   const sort=$('sort').value, type=$('type').value;
   const data=await api(`/api/units?sort=${encodeURIComponent(sort)}&dir=${direction}&type=${encodeURIComponent(type)}`);
   allUnits=data.units;
+  sortUnitsLocal();
+  render();
+}
+
+async function refreshUnits(showLoading=false){
+  if(showLoading){
+    $('units').innerHTML='<tr><td colspan="8" class="empty">加载中...</td></tr>';
+    $('mobileUnits').innerHTML='<div class="empty mobile-empty">加载中...</div>';
+  }
+  const type=$('type').value;
+  const data=await api(`/api/units?sort=${encodeURIComponent($('sort').value)}&dir=${direction}&type=${encodeURIComponent(type)}`);
+  allUnits=data.units;
+  sortUnitsLocal();
   render();
 }
 
 async function act(unit, action){
   if(!confirm(`${action} ${unit}?`)) return;
+  pendingUnits.add(unit);
+  render();
   toast(`正在执行 ${action} ${unit} ...`);
-  const res = await api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({unit,action})});
-  if(!res.ok){
-    toast((res.stderr||res.error||'操作失败').slice(-600), true);
-  }else{
+  try{
+    const res = await api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({unit,action})});
+    if(!res.ok){
+      toast((res.stderr||res.error||'操作失败').slice(-600), true);
+      pendingUnits.delete(unit);
+      render();
+      return;
+    }
     toast(`${unit} ${action} 已提交`);
+    setTimeout(()=>refreshUnits(false).catch(e=>toast('刷新失败: '+e.message,true)).finally(()=>{pendingUnits.delete(unit); render();}), 350);
+  }catch(e){
+    pendingUnits.delete(unit);
+    render();
+    toast(e.message || '操作失败', true);
   }
-  setTimeout(()=>refresh(false).catch(e=>toast('刷新失败: '+e.message,true)), 900);
 }
 
 async function bootAct(unit, action){
@@ -214,14 +269,28 @@ async function bootAct(unit, action){
     ? `确认让 ${unit} 开机自动启动？\n这不会立刻启动当前服务。`
     : `确认取消 ${unit} 开机自动启动？\n这不会立刻停止当前服务。`;
   if(!confirm(text)) return;
+  pendingUnits.add(unit);
+  render();
   toast(`正在${action === 'enable' ? '开启' : '关闭'} ${unit} 的开机自启 ...`);
-  const res = await api('/api/boot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({unit,action})});
-  if(!res.ok){
-    toast((res.stderr||res.error||'自启操作失败').slice(-600), true);
-  }else{
+  try{
+    const res = await api('/api/boot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({unit,action})});
+    if(!res.ok){
+      toast((res.stderr||res.error||'自启操作失败').slice(-600), true);
+      pendingUnits.delete(unit);
+      render();
+      return;
+    }
+    const u = findUnit(unit);
+    if(u && res.unit_file_state){ u.unit_file_state = res.unit_file_state; u.boot_action = action === 'enable' ? 'disable' : 'enable'; }
+    sortUnitsLocal();
+    render();
     toast(`${unit} 自启状态已更新`);
+    setTimeout(()=>refreshUnits(false).catch(e=>toast('刷新失败: '+e.message,true)).finally(()=>{pendingUnits.delete(unit); render();}), 250);
+  }catch(e){
+    pendingUnits.delete(unit);
+    render();
+    toast(e.message || '自启操作失败', true);
   }
-  setTimeout(()=>refresh(false).catch(e=>toast('刷新失败: '+e.message,true)), 700);
 }
 
 async function toggleFavorite(unit){
@@ -266,12 +335,12 @@ async function showLogs(unit){
 }
 
 $('refresh').onclick=()=>refresh(false);
-$('sort').onchange=()=>refresh(false);
+$('sort').onchange=()=>{sortUnitsLocal(); render();};
 $('type').onchange=()=>refresh();
 $('stateFilter').onchange=()=>{stateFilter=$('stateFilter').value; localStorage.tspStateFilter=stateFilter; render();};
 $('bootFilter').onchange=()=>{bootFilter=$('bootFilter').value; localStorage.tspBootFilter=bootFilter; render();};
 $('filter').oninput=render;
-$('dir').onclick=()=>{direction=direction==='desc'?'asc':'desc'; localStorage.tspDirection=direction; refresh(false);};
+$('dir').onclick=()=>{direction=direction==='desc'?'asc':'desc'; localStorage.tspDirection=direction; sortUnitsLocal(); render();};
 $('hideNoisy').onclick=()=>{hideNoisy=!hideNoisy; localStorage.tspHideNoisy=hideNoisy?'1':'0'; render();};
 $('favoritesOnly').onclick=()=>{favoritesOnly=!favoritesOnly; localStorage.tspFavoritesOnly=favoritesOnly?'1':'0'; render();};
 
